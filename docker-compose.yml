@@ -1,0 +1,54 @@
+
+services:
+
+
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: qa_sales-kafka-1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9092:9092"
+      - "9000:9000" # ← добавляем порт для Kafdrop здесь
+    volumes:
+      - kafka_data:/bitnami/kafka/data
+    environment:
+      - KAFKA_ENABLE_KRAFT=true
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=CONTROLLER://0.0.0.0:9093,PLAINTEXT://0.0.0.0:9092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://host.docker.internal:9092
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_GROUP_MIN_SESSION_TIMEOUT_MS=6000
+      - KAFKA_CFG_GROUP_MAX_SESSION_TIMEOUT_MS=300000
+      - ALLOW_PLAINTEXT_LISTENER=yes
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    container_name: kafdrop
+    restart: unless-stopped
+    network_mode: "service:kafka"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BROKERCONNECT=localhost:9092
+      - JVM_OPTS=-Xms32M -Xmx64M
+      - SERVER_SERVLET_CONTEXT_PATH=/
+
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: qa_sales
+      POSTGRES_PASSWORD: secret_password
+      POSTGRES_DB: qa_sales_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+  kafka_data:
